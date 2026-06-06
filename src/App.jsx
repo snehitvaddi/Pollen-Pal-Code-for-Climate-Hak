@@ -1145,6 +1145,32 @@ function PollenPalApp() {
     }
   }
 
+  const glassesStatusText = Capacitor.isNativePlatform()
+    ? glassesStatus.connected
+      ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pollen Pal will speak route-risk alerts while walking.`
+      : glassesWearConfirmed
+        ? 'Meta Glasses marked as worn. iOS has not confirmed the route, so set iPhone audio output to Ray-Ban Meta if you do not hear alerts.'
+        : 'Tap the Meta Glasses button to start demo audio. If iOS asks for microphone permission, allow it.'
+    : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'
+
+  const glassesControls = (
+    <div className="glasses-status-copy">
+      <span>{glassesStatusText}</span>
+      {glassesDemoMessage && <small>{glassesDemoMessage}</small>}
+      <div className="glasses-actions">
+        <button type="button" className={glassesWearConfirmed ? 'confirmed' : ''} onClick={confirmMetaGlassesWorn}>
+          {glassesWearConfirmed ? 'Meta Glasses are on' : "I'm wearing Meta Glasses"}
+        </button>
+        <button type="button" onClick={testGlassesAudio}>
+          Test audio
+        </button>
+        <button type="button" onClick={runMetaGlassesDemo} disabled={isDemoSpeaking}>
+          {isDemoSpeaking ? 'Playing demo' : 'Demo speaker'}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <main className={`app-shell ${selectedResult ? 'has-analysis' : ''} ${isTracking ? 'walking-active' : ''}`}>
       <section className="control-panel" aria-label="Pollen Pal trip controls">
@@ -1216,6 +1242,13 @@ function PollenPalApp() {
             )}
           </div>
         </form>
+
+        {selectedResult && (
+          <div className="control-glasses-panel">
+            <Glasses size={18} />
+            {glassesControls}
+          </div>
+        )}
 
         {status && <p className="status">{status}...</p>}
         {(error || loadError) && (
@@ -1503,35 +1536,7 @@ function PollenPalApp() {
 
               <div className="alert-strip">
                 <Glasses size={18} />
-                <div className="glasses-status-copy">
-                  <span>
-                    {Capacitor.isNativePlatform()
-                      ? glassesStatus.connected
-                        ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pollen Pal will speak route-risk alerts while walking.`
-                        : glassesWearConfirmed
-                          ? 'Meta Glasses marked as worn. iOS has not confirmed the route, so set iPhone audio output to Ray-Ban Meta if you do not hear alerts.'
-                          : 'iOS has not confirmed Meta Glasses audio yet. Pair them, select them in iPhone audio output, or mark that you are wearing them for demo mode.'
-                      : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
-                  </span>
-                  {glassesDemoMessage && <small>{glassesDemoMessage}</small>}
-                  <div className="glasses-actions">
-                    {Capacitor.isNativePlatform() && (
-                      <button
-                        type="button"
-                        className={glassesWearConfirmed ? 'confirmed' : ''}
-                        onClick={confirmMetaGlassesWorn}
-                      >
-                        {glassesWearConfirmed ? 'Meta Glasses are on' : "I'm wearing Meta Glasses"}
-                      </button>
-                    )}
-                    <button type="button" onClick={testGlassesAudio}>
-                      Test audio
-                    </button>
-                    <button type="button" onClick={runMetaGlassesDemo} disabled={isDemoSpeaking}>
-                      {isDemoSpeaking ? 'Playing demo' : 'Demo speaker'}
-                    </button>
-                  </div>
-                </div>
+                {glassesControls}
               </div>
 
               <div className="plant-list">

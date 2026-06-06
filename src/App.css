@@ -192,6 +192,17 @@ button:focus-visible {
   background: #fff1ee;
 }
 
+.control-glasses-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid rgba(31, 111, 88, 0.2);
+  border-radius: 8px;
+  color: #143b30;
+  background: #ecf8f1;
+}
+
 .status {
   padding: 10px 12px;
   border-radius: 8px;
