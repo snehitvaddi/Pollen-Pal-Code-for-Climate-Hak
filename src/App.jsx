@@ -1,4 +1,5 @@
 import { CircleF, GoogleMap, MarkerF, PolylineF, useJsApiLoader } from '@react-google-maps/api'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import {
   AlertTriangle,
   Bike,
@@ -17,6 +18,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
+const PaulineGlasses = registerPlugin('PaulineGlasses')
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 const GOOGLE_POLLEN_BROWSER_KEY = import.meta.env.VITE_GOOGLE_POLLEN_API_KEY || GOOGLE_MAPS_KEY
@@ -24,6 +26,11 @@ const MAP_LIBRARIES = ['places']
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000
 const LIVE_REFRESH_MS = 60 * 1000
 const HOTSPOT_SAMPLE_COUNT = 18
+const HOTSPOT_ENTRY_METERS = 85
+const HOTSPOT_PREVIEW_MIN_METERS = 80
+const HOTSPOT_PREVIEW_MAX_METERS = 380
+const SAFE_MESSAGE_COOLDOWN_MS = 2 * 60 * 1000
+const ALERT_COOLDOWN_MS = 45 * 1000
 
 const sensitivityBoost = {
   low: 0.85,
@@ -578,12 +585,41 @@ function findNearestHotspot(point, segments) {
 function findNearestRoutePoint(point, routePath) {
   if (!point || !routePath?.length) return { point, distance: Number.POSITIVE_INFINITY }
   return routePath.reduce(
-    (nearest, routePoint) => {
+    (nearest, routePoint, index) => {
       const distance = distanceMeters(point, routePoint)
-      return distance < nearest.distance ? { point: routePoint, distance } : nearest
+      return distance < nearest.distance ? { point: routePoint, distance, index } : nearest
     },
-    { point: routePath[0], distance: Number.POSITIVE_INFINITY },
+    { point: routePath[0], distance: Number.POSITIVE_INFINITY, index: 0 },
   )
+}
+
+function distanceAlongRoute(routePath, startIndex, endIndex) {
+  if (!routePath?.length || startIndex === endIndex) return 0
+  const start = clamp(Math.min(startIndex, endIndex), 0, routePath.length - 1)
+  const end = clamp(Math.max(startIndex, endIndex), 0, routePath.length - 1)
+  let total = 0
+  for (let index = start; index < end; index += 1) {
+    total += distanceMeters(routePath[index], routePath[index + 1])
+  }
+  return total
+}
+
+function findUpcomingHotspot(point, routePath, segments) {
+  if (!point || !routePath?.length || !segments?.length) return null
+  const current = findNearestRoutePoint(point, routePath)
+  return segments
+    .filter((segment) => segment.score >= 64)
+    .map((segment) => {
+      const target = findNearestRoutePoint(segment.midpoint, routePath)
+      const metersAway = target.index >= current.index ? distanceAlongRoute(routePath, current.index, target.index) : -1
+      return {
+        ...segment,
+        metersAway,
+        routeIndex: target.index,
+      }
+    })
+    .filter((segment) => segment.metersAway >= 0)
+    .sort((a, b) => a.metersAway - b.metersAway)[0]
 }
 
 function findCurrentStep(point, directions, selectedRoute) {
@@ -649,7 +685,6 @@ function PaulineApp() {
   const [selectedRoute, setSelectedRoute] = useState(0)
   const [results, setResults] = useState([])
   const [weather, setWeather] = useState(null)
-  const [analyzedAt, setAnalyzedAt] = useState(null)
   const [showWindLayer, setShowWindLayer] = useState(true)
   const [showGreenLayer, setShowGreenLayer] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -658,14 +693,14 @@ function PaulineApp() {
   const [currentLocation, setCurrentLocation] = useState(null)
   const [gpsRouteWarning, setGpsRouteWarning] = useState('')
   const [liveStatus, setLiveStatus] = useState(null)
-  const [navigationStatus, setNavigationStatus] = useState(null)
+  const [glassesStatus, setGlassesStatus] = useState({ available: false, connected: false, likelyMetaGlasses: false })
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const mapRef = useRef(null)
   const locationWatchRef = useRef(null)
   const liveRefreshRef = useRef(null)
   const lastLiveCheckRef = useRef(null)
-  const lastSpokenAlertRef = useRef('')
+  const lastSpokenAlertRef = useRef({ key: '', time: 0, wasHighRisk: false, lastSafeAt: 0 })
   const followModeRef = useRef(false)
   const pollenCacheRef = useRef(new Map())
 
@@ -716,9 +751,63 @@ function PaulineApp() {
     [],
   )
 
-  function speakGlassesAlert(message) {
-    if (!message || lastSpokenAlertRef.current === message) return
-    lastSpokenAlertRef.current = message
+  useEffect(() => {
+    if (!selectedResult) return undefined
+    checkGlassesStatus()
+    const timer = window.setInterval(checkGlassesStatus, 15_000)
+    return () => window.clearInterval(timer)
+  }, [selectedResult])
+
+  useEffect(() => {
+    if (!selectedResult) return
+    const routeLabel = selectedResult.label?.label?.toLowerCase() || 'route'
+    speakGlassesAlert(`Pauline is connected. This route has ${routeLabel} pollen exposure. Start walking when ready.`, `route-ready:${selectedRoute}:${selectedResult.score}`)
+  }, [selectedResult, selectedRoute])
+
+  async function checkGlassesStatus() {
+    if (!Capacitor.isNativePlatform()) {
+      setGlassesStatus({ available: false, connected: false, likelyMetaGlasses: false, routeName: 'Browser preview' })
+      return null
+    }
+
+    try {
+      const statusResult = await PaulineGlasses.getStatus()
+      setGlassesStatus(statusResult)
+      return statusResult
+    } catch {
+      const unavailable = { available: false, connected: false, likelyMetaGlasses: false, routeName: 'iOS audio unavailable' }
+      setGlassesStatus(unavailable)
+      return unavailable
+    }
+  }
+
+  async function speakGlassesAlert(message, key) {
+    if (!message || !Capacitor.isNativePlatform()) return
+
+    const now = Date.now()
+    const last = lastSpokenAlertRef.current
+    const alertKey = key || message
+    if (last.key === alertKey && now - last.time < ALERT_COOLDOWN_MS) return
+
+    const currentStatus = await checkGlassesStatus()
+    if (!currentStatus?.connected) return
+
+    lastSpokenAlertRef.current = {
+      ...last,
+      key: alertKey,
+      time: now,
+    }
+
+    try {
+      await PaulineGlasses.speak({
+        text: message,
+        rate: 0.47,
+        pitch: 1.02,
+        volume: 0.96,
+      })
+    } catch (speechError) {
+      setError(readableError(speechError, 'Unable to speak through the connected audio route'))
+    }
   }
 
   async function refreshLiveConditions(point) {
@@ -742,20 +831,44 @@ function PaulineApp() {
         { point: null, distance: Number.POSITIVE_INFINITY },
       )
       const currentStep = findCurrentStep(point, directions, selectedRoute)
-      const highRisk = score >= 64
-      const glassesMessage = highRisk
-        ? `${label.label} ${nearestHotspot?.dominantPollen || summary.dominant?.name || 'pollen'} hotspot ahead. ${nearestHotspot?.factors?.slice(0, 2).join(' and ') || 'Wind and pollen conditions'} are increasing exposure near this segment.`
-        : `${summary.dominant?.name || 'Pollen'} risk is ${label.label.toLowerCase()} where you are now.`
+      const upcomingHotspot = findUpcomingHotspot(point, selectedRoutePath, selectedResult?.hotspotSegments || [])
+      const dominant = nearestHotspot?.dominantPollen || upcomingHotspot?.dominantPollen || summary.dominant?.name || 'pollen'
+      const currentHotspotIsNear = nearestHotspot?.score >= 64 && nearestHotspot.distance <= HOTSPOT_ENTRY_METERS
+      const factors = nearestHotspot?.factors?.slice(0, 2).join(' and ') || upcomingHotspot?.factors?.slice(0, 2).join(' and ')
+      let glassesMessage = `${dominant} risk is ${label.label.toLowerCase()} where you are now.`
+      let speechKey = ''
 
-      if (highRisk && nearestHotspot?.id && nearestHotspot.id !== liveStatus?.hotspotId) {
-        speakGlassesAlert(glassesMessage)
+      if (
+        upcomingHotspot &&
+        upcomingHotspot.metersAway >= HOTSPOT_PREVIEW_MIN_METERS &&
+        upcomingHotspot.metersAway <= HOTSPOT_PREVIEW_MAX_METERS
+      ) {
+        glassesMessage = `In ${metersText(upcomingHotspot.metersAway)}, you will enter a ${upcomingHotspot.label.label.toLowerCase()} ${dominant} segment. Please wear a mask or cover your face.`
+        speechKey = `ahead:${upcomingHotspot.id}`
+        speakGlassesAlert(glassesMessage, speechKey)
       }
 
-      setNavigationStatus({
-        currentStep,
-        nearestRouteDistance: nearestRoutePoint.distance,
-        nearestHotspot,
-      })
+      if (currentHotspotIsNear) {
+        glassesMessage = `${nearestHotspot.label.label} ${dominant} now. ${factors || 'Wind and pollen conditions'} are increasing exposure here. Please wear a mask for the next few minutes.`
+        speechKey = `enter:${nearestHotspot.id}:${nearestHotspot.label.label}`
+        speakGlassesAlert(glassesMessage, speechKey)
+        lastSpokenAlertRef.current = {
+          ...lastSpokenAlertRef.current,
+          wasHighRisk: true,
+        }
+      } else if (lastSpokenAlertRef.current.wasHighRisk && score < 42) {
+        const now = Date.now()
+        if (now - lastSpokenAlertRef.current.lastSafeAt > SAFE_MESSAGE_COOLDOWN_MS) {
+          glassesMessage = 'You are in a lower exposure stretch now. Take a few easy breaths.'
+          speechKey = `safe:${nearestHotspot?.id || 'route'}`
+          speakGlassesAlert(glassesMessage, speechKey)
+          lastSpokenAlertRef.current = {
+            ...lastSpokenAlertRef.current,
+            wasHighRisk: false,
+            lastSafeAt: now,
+          }
+        }
+      }
 
       setLiveStatus({
         score,
@@ -767,6 +880,10 @@ function PaulineApp() {
         checkedAt: new Date(),
         distanceFromRoute: nearestRoutePoint.distance,
         hotspotId: nearestHotspot?.id,
+        currentStep,
+        nearestRouteDistance: nearestRoutePoint.distance,
+        nearestHotspot,
+        upcomingHotspot,
         message: `Glasses update: ${glassesMessage}`,
       })
     } catch (liveError) {
@@ -784,6 +901,7 @@ function PaulineApp() {
     setIsTracking(true)
     setIsFollowMode(true)
     followModeRef.current = true
+    speakGlassesAlert('Walking mode started. I will warn you before higher pollen segments.', 'walking-start')
     locationWatchRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const point = {
@@ -921,7 +1039,6 @@ function PaulineApp() {
       const bestIndex = scoredRoutes.reduce((best, route, index) => (route.score < scoredRoutes[best].score ? index : best), 0)
       if (!silent) setSelectedRoute(bestIndex)
       else setSelectedRoute((current) => Math.min(current, scoredRoutes.length - 1))
-      setAnalyzedAt(new Date())
       setStatus('')
       setIsRefreshing(false)
     } catch (routeError) {
@@ -1267,7 +1384,9 @@ function PaulineApp() {
               {liveStatus && (
                 <div className={`live-card ${liveStatus.label.tone}`}>
                   <div>
-                    <span className="metric-label">Live GPS glasses alert</span>
+                    <span className="metric-label">
+                      Live GPS glasses alert · {glassesStatus.connected ? glassesStatus.routeName || 'Bluetooth audio' : 'not connected'}
+                    </span>
                     <strong>{liveStatus.label.label}</strong>
                   </div>
                   <p>{liveStatus.message}</p>
@@ -1288,8 +1407,11 @@ function PaulineApp() {
               <div className="alert-strip">
                 <Glasses size={18} />
                 <span>
-                  Glasses demo alert: entering a {selectedResult.dominant?.category?.toLowerCase() || 'pollen'} segment.
-                  {selectedResult.greeneryScore > 0.5 ? ' Park-heavy area nearby.' : ''}
+                  {Capacitor.isNativePlatform()
+                    ? glassesStatus.connected
+                      ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pauline will speak route-risk alerts while walking.`
+                      : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
+                    : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
                 </span>
               </div>
 
