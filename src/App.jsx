@@ -810,6 +810,24 @@ function PaulineApp() {
     }
   }
 
+  async function testGlassesAudio() {
+    if (!Capacitor.isNativePlatform()) {
+      setError('Glasses audio test only runs in the iOS app. Browser preview stays quiet.')
+      return
+    }
+
+    const currentStatus = await checkGlassesStatus()
+    if (!currentStatus?.connected) {
+      setError('No Bluetooth glasses route detected. Pair Ray-Ban Meta glasses with the iPhone, then tap Test audio again.')
+      return
+    }
+
+    await speakGlassesAlert(
+      'Pauline audio test. I will warn you before higher pollen segments and give you breathing time in safer areas.',
+      `manual-test:${Date.now()}`,
+    )
+  }
+
   async function refreshLiveConditions(point) {
     try {
       const [pollenData, weatherData] = await Promise.all([fetchPollen(point), fetchWeather(point)])
@@ -1406,13 +1424,18 @@ function PaulineApp() {
 
               <div className="alert-strip">
                 <Glasses size={18} />
-                <span>
-                  {Capacitor.isNativePlatform()
-                    ? glassesStatus.connected
-                      ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pauline will speak route-risk alerts while walking.`
-                      : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
-                    : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
-                </span>
+                <div className="glasses-status-copy">
+                  <span>
+                    {Capacitor.isNativePlatform()
+                      ? glassesStatus.connected
+                        ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pauline will speak route-risk alerts while walking.`
+                        : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
+                      : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
+                  </span>
+                  <button type="button" onClick={testGlassesAudio}>
+                    Test audio
+                  </button>
+                </div>
               </div>
 
               <div className="plant-list">
