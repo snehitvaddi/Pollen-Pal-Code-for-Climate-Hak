@@ -1,6 +1,6 @@
-# Pauline
+# Pollen Pal
 
-Pauline is a Code for Climate prototype for pollen-sensitive walkers and cyclists. It compares walking/biking routes and combines:
+Pollen Pal is a Code for Climate prototype for pollen-sensitive walkers and cyclists. It compares walking/biking routes and combines:
 
 - Google Maps route alternatives
 - Google Pollen API route sampling
@@ -53,8 +53,8 @@ Open `http://localhost:5173`.
 2. Pick walking or biking.
 3. Pick sensitivity.
 4. Click `Analyze exposure`.
-5. Show the best route, risk score, likely triggers, wind context, and simulated glasses alert.
+5. Show the best route, risk score, likely triggers, wind context, and iOS Bluetooth/Meta glasses audio alert path.
 
 ## Guardrail Story
 
-Pauline gives exposure-preparation guidance only. It does not diagnose allergies, prescribe medication, or replace clinician advice. The Google Pollen key is kept server-side through the local Vite proxy.
+Pollen Pal gives exposure-preparation guidance only. It does not diagnose allergies, prescribe medication, or replace clinician advice. The Google Pollen key is kept server-side through the local Vite proxy.

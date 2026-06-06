@@ -2,10 +2,10 @@ import AVFoundation
 import Capacitor
 import Foundation
 
-@objc(PaulineGlassesPlugin)
-public class PaulineGlassesPlugin: CAPPlugin, CAPBridgedPlugin {
-    public let identifier = "PaulineGlasses"
-    public let jsName = "PaulineGlasses"
+@objc(PollenPalGlassesPlugin)
+public class PollenPalGlassesPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "PollenPalGlasses"
+    public let jsName = "PollenPalGlasses"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "speak", returnType: CAPPluginReturnPromise),

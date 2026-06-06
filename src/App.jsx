@@ -18,7 +18,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
-const PaulineGlasses = registerPlugin('PaulineGlasses')
+const PollenPalGlasses = registerPlugin('PollenPalGlasses')
 const DEFAULT_CENTER = { lat: 40.758, lng: -73.9855 }
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
 const GOOGLE_POLLEN_BROWSER_KEY = import.meta.env.VITE_GOOGLE_POLLEN_API_KEY || GOOGLE_MAPS_KEY
@@ -396,7 +396,7 @@ function buildAdvice(result, weather, mode) {
   if (!result) return []
   if (result.pollenUnavailable) {
     return [
-      'Google Pollen data is unavailable for this route, so Pauline can only show weather and park context here.',
+      'Google Pollen data is unavailable for this route, so Pollen Pal can only show weather and park context here.',
       'Use this as a routing demo location issue, not as a low-risk pollen result.',
     ]
   }
@@ -421,7 +421,7 @@ function buildAdvice(result, weather, mode) {
   }
 
   if (mode === 'BICYCLING' && result.mixedMode) {
-    advice.push(`Bike mode includes a short ${metersText(result.walkFinishMeters)} final walk, so Pauline still checks exposure near the parking/dismount point.`)
+    advice.push(`Bike mode includes a short ${metersText(result.walkFinishMeters)} final walk, so Pollen Pal still checks exposure near the parking/dismount point.`)
   }
 
   return advice
@@ -650,14 +650,14 @@ function findCurrentStep(point, directions, selectedRoute) {
 function MissingKeyApp() {
   return (
     <main className="app-shell setup-only">
-      <section className="control-panel" aria-label="Pauline setup">
+      <section className="control-panel" aria-label="Pollen Pal setup">
         <div className="brand-row">
           <div className="brand-mark">
             <Trees size={22} />
           </div>
           <div>
             <p className="eyebrow">Code for Climate / Protect</p>
-            <h1>Pauline</h1>
+            <h1>Pollen Pal</h1>
           </div>
         </div>
 
@@ -676,7 +676,7 @@ function MissingKeyApp() {
   )
 }
 
-function PaulineApp() {
+function PollenPalApp() {
   const [origin, setOrigin] = useState('515 Madison Ave, New York, NY')
   const [destination, setDestination] = useState('Bryant Park, New York, NY')
   const [mode, setMode] = useState('WALKING')
@@ -761,7 +761,7 @@ function PaulineApp() {
   useEffect(() => {
     if (!selectedResult) return
     const routeLabel = selectedResult.label?.label?.toLowerCase() || 'route'
-    speakGlassesAlert(`Pauline is connected. This route has ${routeLabel} pollen exposure. Start walking when ready.`, `route-ready:${selectedRoute}:${selectedResult.score}`)
+    speakGlassesAlert(`Pollen Pal is connected. This route has ${routeLabel} pollen exposure. Start walking when ready.`, `route-ready:${selectedRoute}:${selectedResult.score}`)
   }, [selectedResult, selectedRoute])
 
   async function checkGlassesStatus() {
@@ -771,7 +771,7 @@ function PaulineApp() {
     }
 
     try {
-      const statusResult = await PaulineGlasses.getStatus()
+      const statusResult = await PollenPalGlasses.getStatus()
       setGlassesStatus(statusResult)
       return statusResult
     } catch {
@@ -799,7 +799,7 @@ function PaulineApp() {
     }
 
     try {
-      await PaulineGlasses.speak({
+      await PollenPalGlasses.speak({
         text: message,
         rate: 0.47,
         pitch: 1.02,
@@ -823,7 +823,7 @@ function PaulineApp() {
     }
 
     await speakGlassesAlert(
-      'Pauline audio test. I will warn you before higher pollen segments and give you breathing time in safer areas.',
+      'Pollen Pal audio test. I will warn you before higher pollen segments and give you breathing time in safer areas.',
       `manual-test:${Date.now()}`,
     )
   }
@@ -1068,14 +1068,14 @@ function PaulineApp() {
 
   return (
     <main className={`app-shell ${selectedResult ? 'has-analysis' : ''} ${isTracking ? 'walking-active' : ''}`}>
-      <section className="control-panel" aria-label="Pauline trip controls">
+      <section className="control-panel" aria-label="Pollen Pal trip controls">
         <div className="brand-row">
           <div className="brand-mark">
             <Trees size={22} />
           </div>
           <div>
             <p className="eyebrow">Code for Climate / Protect</p>
-            <h1>Pauline</h1>
+            <h1>Pollen Pal</h1>
           </div>
         </div>
 
@@ -1148,7 +1148,7 @@ function PaulineApp() {
 
         <div className="guardrail">
           <ShieldCheck size={18} />
-          <span>Guardrail: Pauline gives exposure-prep guidance, not medical diagnosis or treatment.</span>
+          <span>Guardrail: Pollen Pal gives exposure-prep guidance, not medical diagnosis or treatment.</span>
         </div>
       </section>
 
@@ -1416,7 +1416,7 @@ function PaulineApp() {
               )}
 
               <div className="advice">
-                <h2>Pauline says</h2>
+                <h2>Pollen Pal says</h2>
                 {advice.map((item) => (
                   <p key={item}>{item}</p>
                 ))}
@@ -1428,7 +1428,7 @@ function PaulineApp() {
                   <span>
                     {Capacitor.isNativePlatform()
                       ? glassesStatus.connected
-                        ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pauline will speak route-risk alerts while walking.`
+                        ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pollen Pal will speak route-risk alerts while walking.`
                         : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
                       : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
                   </span>
@@ -1487,7 +1487,7 @@ function App() {
     return <MissingKeyApp />
   }
 
-  return <PaulineApp />
+  return <PollenPalApp />
 }
 
 export default App

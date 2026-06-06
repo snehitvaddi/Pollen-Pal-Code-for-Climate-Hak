@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 function pollenProxy() {
   return {
-    name: 'pauline-pollen-proxy',
+    name: 'pollen-pal-pollen-proxy',
     configureServer(server) {
       server.middlewares.use('/api/pollen', async (req, res) => {
         const url = new URL(req.url, 'http://localhost')
