@@ -628,6 +628,17 @@ button:focus-visible {
   gap: 10px;
 }
 
+.glasses-status-copy small {
+  color: #8a4420;
+  line-height: 1.35;
+}
+
+.glasses-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .glasses-status-copy button {
   width: fit-content;
   min-height: 34px;
@@ -638,6 +649,17 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.78);
   cursor: pointer;
   font-weight: 850;
+}
+
+.glasses-status-copy button.confirmed {
+  border-color: rgba(27, 127, 98, 0.3);
+  color: #124435;
+  background: #eaf8f0;
+}
+
+.glasses-status-copy button:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .plant-list {

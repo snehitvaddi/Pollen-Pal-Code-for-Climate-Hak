@@ -31,6 +31,7 @@ const HOTSPOT_PREVIEW_MIN_METERS = 80
 const HOTSPOT_PREVIEW_MAX_METERS = 380
 const SAFE_MESSAGE_COOLDOWN_MS = 2 * 60 * 1000
 const ALERT_COOLDOWN_MS = 45 * 1000
+const DEMO_SPEAKER_PAUSE_MS = 4200
 
 const sensitivityBoost = {
   low: 0.85,
@@ -52,6 +53,12 @@ function readableError(value, fallback = 'Something went wrong') {
   } catch {
     return fallback
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 function pointToLatLng(point) {
@@ -694,6 +701,9 @@ function PollenPalApp() {
   const [gpsRouteWarning, setGpsRouteWarning] = useState('')
   const [liveStatus, setLiveStatus] = useState(null)
   const [glassesStatus, setGlassesStatus] = useState({ available: false, connected: false, likelyMetaGlasses: false })
+  const [glassesWearConfirmed, setGlassesWearConfirmed] = useState(false)
+  const [glassesDemoMessage, setGlassesDemoMessage] = useState('')
+  const [isDemoSpeaking, setIsDemoSpeaking] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const mapRef = useRef(null)
@@ -773,10 +783,14 @@ function PollenPalApp() {
     try {
       const statusResult = await PollenPalGlasses.getStatus()
       setGlassesStatus(statusResult)
+      if (!statusResult.connected) {
+        setGlassesWearConfirmed(false)
+      }
       return statusResult
     } catch {
       const unavailable = { available: false, connected: false, likelyMetaGlasses: false, routeName: 'iOS audio unavailable' }
       setGlassesStatus(unavailable)
+      setGlassesWearConfirmed(false)
       return unavailable
     }
   }
@@ -826,6 +840,42 @@ function PollenPalApp() {
       'Pollen Pal audio test. I will warn you before higher pollen segments and give you breathing time in safer areas.',
       `manual-test:${Date.now()}`,
     )
+  }
+
+  async function runMetaGlassesDemo() {
+    const demoMessages = [
+      'Pollen Pal route guidance started. Keep your Meta glasses on and I will keep alerts short.',
+      'In about three minutes, you will enter a higher grass pollen zone near a park edge. Please wear a mask or cover your face.',
+      'High pollen now. Wind is carrying exposure across this segment. Keep your mask on for the next few minutes.',
+      'You are leaving the hotspot and entering a lower exposure stretch. Take a few easy breaths.',
+    ]
+
+    setError('')
+    setIsDemoSpeaking(true)
+
+    try {
+      if (!Capacitor.isNativePlatform()) {
+        setGlassesDemoMessage(demoMessages.join(' '))
+        setError('Demo audio only speaks in the iOS app. Browser preview shows the Meta Glasses script without playing sound.')
+        return
+      }
+
+      const currentStatus = await checkGlassesStatus()
+      if (!currentStatus?.connected) {
+        setError('No Bluetooth glasses route detected. Pair Ray-Ban Meta glasses with the iPhone, then run the Meta Glasses demo.')
+        return
+      }
+
+      for (const [index, message] of demoMessages.entries()) {
+        setGlassesDemoMessage(message)
+        await speakGlassesAlert(message, `meta-demo:${index}:${Date.now()}`)
+        if (index < demoMessages.length - 1) {
+          await delay(DEMO_SPEAKER_PAUSE_MS)
+        }
+      }
+    } finally {
+      setIsDemoSpeaking(false)
+    }
   }
 
   async function refreshLiveConditions(point) {
@@ -909,13 +959,21 @@ function PollenPalApp() {
     }
   }
 
-  function startWalking() {
+  async function startWalking() {
     if (!navigator.geolocation) {
       setError('Geolocation is not available in this browser.')
       return
     }
 
     setError('')
+    const currentStatus = await checkGlassesStatus()
+    if (Capacitor.isNativePlatform() && currentStatus?.connected) {
+      setGlassesDemoMessage(
+        `${currentStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected. Confirm you are wearing them to hear route alerts.`,
+      )
+    } else if (Capacitor.isNativePlatform()) {
+      setGlassesDemoMessage('No Meta glasses audio route detected yet. GPS will still run, but spoken alerts need Bluetooth glasses connected.')
+    }
     setIsTracking(true)
     setIsFollowMode(true)
     followModeRef.current = true
@@ -1432,9 +1490,24 @@ function PollenPalApp() {
                         : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
                       : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
                   </span>
-                  <button type="button" onClick={testGlassesAudio}>
-                    Test audio
-                  </button>
+                  {glassesDemoMessage && <small>{glassesDemoMessage}</small>}
+                  <div className="glasses-actions">
+                    {Capacitor.isNativePlatform() && glassesStatus.connected && (
+                      <button
+                        type="button"
+                        className={glassesWearConfirmed ? 'confirmed' : ''}
+                        onClick={() => setGlassesWearConfirmed((current) => !current)}
+                      >
+                        {glassesWearConfirmed ? 'Meta Glasses are on' : "I'm wearing Meta Glasses"}
+                      </button>
+                    )}
+                    <button type="button" onClick={testGlassesAudio}>
+                      Test audio
+                    </button>
+                    <button type="button" onClick={runMetaGlassesDemo} disabled={isDemoSpeaking}>
+                      {isDemoSpeaking ? 'Playing demo' : 'Demo speaker'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
