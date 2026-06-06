@@ -783,19 +783,15 @@ function PollenPalApp() {
     try {
       const statusResult = await PollenPalGlasses.getStatus()
       setGlassesStatus(statusResult)
-      if (!statusResult.connected) {
-        setGlassesWearConfirmed(false)
-      }
       return statusResult
     } catch {
       const unavailable = { available: false, connected: false, likelyMetaGlasses: false, routeName: 'iOS audio unavailable' }
       setGlassesStatus(unavailable)
-      setGlassesWearConfirmed(false)
       return unavailable
     }
   }
 
-  async function speakGlassesAlert(message, key) {
+  async function speakGlassesAlert(message, key, options = {}) {
     if (!message || !Capacitor.isNativePlatform()) return
 
     const now = Date.now()
@@ -804,7 +800,7 @@ function PollenPalApp() {
     if (last.key === alertKey && now - last.time < ALERT_COOLDOWN_MS) return
 
     const currentStatus = await checkGlassesStatus()
-    if (!currentStatus?.connected) return
+    if (!currentStatus?.connected && !options.force) return
 
     lastSpokenAlertRef.current = {
       ...last,
@@ -832,13 +828,15 @@ function PollenPalApp() {
 
     const currentStatus = await checkGlassesStatus()
     if (!currentStatus?.connected) {
-      setError('No Bluetooth glasses route detected. Pair Ray-Ban Meta glasses with the iPhone, then tap Test audio again.')
-      return
+      setGlassesDemoMessage(
+        'iOS has not confirmed the glasses route. Playing test audio anyway; if Control Center output is set to Ray-Ban Meta, you should hear it there.',
+      )
     }
 
     await speakGlassesAlert(
       'Pollen Pal audio test. I will warn you before higher pollen segments and give you breathing time in safer areas.',
       `manual-test:${Date.now()}`,
+      { force: true },
     )
   }
 
@@ -862,13 +860,14 @@ function PollenPalApp() {
 
       const currentStatus = await checkGlassesStatus()
       if (!currentStatus?.connected) {
-        setError('No Bluetooth glasses route detected. Pair Ray-Ban Meta glasses with the iPhone, then run the Meta Glasses demo.')
-        return
+        setGlassesDemoMessage(
+          'iOS has not confirmed the glasses route. Running the speaker demo anyway; set iPhone audio output to Ray-Ban Meta if you do not hear it.',
+        )
       }
 
       for (const [index, message] of demoMessages.entries()) {
         setGlassesDemoMessage(message)
-        await speakGlassesAlert(message, `meta-demo:${index}:${Date.now()}`)
+        await speakGlassesAlert(message, `meta-demo:${index}:${Date.now()}`, { force: true })
         if (index < demoMessages.length - 1) {
           await delay(DEMO_SPEAKER_PAUSE_MS)
         }
@@ -1487,12 +1486,14 @@ function PollenPalApp() {
                     {Capacitor.isNativePlatform()
                       ? glassesStatus.connected
                         ? `${glassesStatus.likelyMetaGlasses ? 'Meta glasses' : 'Bluetooth audio'} connected: ${glassesStatus.routeName || 'iOS route'}. Pollen Pal will speak route-risk alerts while walking.`
-                        : 'No Bluetooth glasses route detected yet. Pair Ray-Ban Meta glasses with the iPhone, then start walking.'
+                        : glassesWearConfirmed
+                          ? 'Meta Glasses marked as worn. iOS has not confirmed the route, so set iPhone audio output to Ray-Ban Meta if you do not hear alerts.'
+                          : 'iOS has not confirmed Meta Glasses audio yet. Pair them, select them in iPhone audio output, or mark that you are wearing them for demo mode.'
                       : 'Browser preview is quiet. iOS will speak alerts through connected Ray-Ban Meta Bluetooth audio.'}
                   </span>
                   {glassesDemoMessage && <small>{glassesDemoMessage}</small>}
                   <div className="glasses-actions">
-                    {Capacitor.isNativePlatform() && glassesStatus.connected && (
+                    {Capacitor.isNativePlatform() && (
                       <button
                         type="button"
                         className={glassesWearConfirmed ? 'confirmed' : ''}

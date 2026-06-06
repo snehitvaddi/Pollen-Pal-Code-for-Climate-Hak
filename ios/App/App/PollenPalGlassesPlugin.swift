@@ -60,9 +60,9 @@ public class PollenPalGlassesPlugin: CAPPlugin, CAPBridgedPlugin {
     private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(
-            .playback,
-            mode: .spokenAudio,
-            options: [.allowBluetoothA2DP, .duckOthers]
+            .playAndRecord,
+            mode: .measurement,
+            options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker]
         )
         try session.setActive(true, options: [])
     }
