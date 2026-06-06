@@ -840,6 +840,20 @@ function PollenPalApp() {
     )
   }
 
+  async function confirmMetaGlassesWorn() {
+    const nextConfirmed = !glassesWearConfirmed
+    setGlassesWearConfirmed(nextConfirmed)
+
+    if (!nextConfirmed) return
+
+    setGlassesDemoMessage('Meta Glasses marked as worn. Playing a short confirmation through the current iPhone audio route.')
+    await speakGlassesAlert(
+      'Pollen Pal is ready on your Meta glasses. I will speak short pollen alerts while you move.',
+      `wear-confirmed:${Date.now()}`,
+      { force: true },
+    )
+  }
+
   async function runMetaGlassesDemo() {
     const demoMessages = [
       'Pollen Pal route guidance started. Keep your Meta glasses on and I will keep alerts short.',
@@ -1497,7 +1511,7 @@ function PollenPalApp() {
                       <button
                         type="button"
                         className={glassesWearConfirmed ? 'confirmed' : ''}
-                        onClick={() => setGlassesWearConfirmed((current) => !current)}
+                        onClick={confirmMetaGlassesWorn}
                       >
                         {glassesWearConfirmed ? 'Meta Glasses are on' : "I'm wearing Meta Glasses"}
                       </button>
