@@ -681,6 +681,9 @@ button:focus-visible {
   }
 
   .control-panel {
+    padding-top: max(12px, calc(var(--safe-top) + 12px));
+    padding-left: max(12px, calc(var(--safe-left) + 12px));
+    padding-right: max(12px, calc(var(--safe-right) + 12px));
     gap: 16px;
   }
 
@@ -827,7 +830,10 @@ button:focus-visible {
 
   .walking-active .control-panel {
     flex: 0 0 auto;
-    padding: 12px;
+    padding-top: max(12px, calc(var(--safe-top) + 10px));
+    padding-right: max(12px, calc(var(--safe-right) + 12px));
+    padding-bottom: 12px;
+    padding-left: max(12px, calc(var(--safe-left) + 12px));
     gap: 10px;
     border-bottom: 1px solid rgba(32, 53, 44, 0.16);
   }
@@ -905,13 +911,13 @@ button:focus-visible {
     flex: 1 1 auto;
     display: block;
     min-height: 0;
-    padding: 0;
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   }
 
   .walking-active .map-wrap,
   .walking-active .map,
   .walking-active .map-loading {
-    min-height: calc(100dvh - 190px);
+    min-height: calc(100dvh - 190px - var(--safe-top) - var(--safe-bottom));
     border-radius: 0;
     border-left: 0;
     border-right: 0;
