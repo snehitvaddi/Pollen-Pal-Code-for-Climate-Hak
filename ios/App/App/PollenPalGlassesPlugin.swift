@@ -13,6 +13,9 @@ public class PollenPalGlassesPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let synthesizer = AVSpeechSynthesizer()
+    private var audioRoutePrepared = false
+    private var audioKeepAliveEngine: AVAudioEngine?
+    private var audioKeepAlivePlayer: AVAudioPlayerNode?
 
     @objc func getStatus(_ call: CAPPluginCall) {
         do {
@@ -59,12 +62,50 @@ public class PollenPalGlassesPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(
-            .playAndRecord,
-            mode: .measurement,
-            options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker]
-        )
-        try session.setActive(true, options: [])
+        if !audioRoutePrepared || session.category != .playAndRecord || session.mode != .measurement {
+            try session.setCategory(
+                .playAndRecord,
+                mode: .measurement,
+                options: [.allowBluetoothHFP, .allowBluetoothA2DP, .defaultToSpeaker]
+            )
+        }
+        if let bluetoothInput = session.availableInputs?.first(where: { $0.portType == .bluetoothHFP }) {
+            try session.setPreferredInput(bluetoothInput)
+        }
+        try session.setActive(true)
+        audioRoutePrepared = true
+        try startAudioKeepAliveIfNeeded()
+    }
+
+    private func startAudioKeepAliveIfNeeded() throws {
+        if audioKeepAliveEngine?.isRunning == true {
+            return
+        }
+
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4_410) else {
+            return
+        }
+
+        buffer.frameLength = buffer.frameCapacity
+        if let channel = buffer.floatChannelData?[0] {
+            for frame in 0..<Int(buffer.frameLength) {
+                channel[frame] = 0
+            }
+        }
+
+        engine.attach(player)
+        engine.connect(player, to: engine.mainMixerNode, format: format)
+        player.volume = 0.0001
+        player.scheduleBuffer(buffer, at: nil, options: .loops)
+        engine.prepare()
+        try engine.start()
+        player.play()
+
+        audioKeepAliveEngine = engine
+        audioKeepAlivePlayer = player
     }
 
     private func routeStatus() -> [String: Any] {

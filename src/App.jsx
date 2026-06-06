@@ -809,12 +809,20 @@ function PollenPalApp() {
     }
 
     try {
-      await PollenPalGlasses.speak({
+      const speechResult = await PollenPalGlasses.speak({
         text: message,
         rate: 0.47,
         pitch: 1.02,
         volume: 0.96,
       })
+      if (speechResult) {
+        setGlassesStatus(speechResult)
+        setGlassesDemoMessage(
+          `${speechResult.routeName || 'iOS audio route'} used for speech. ${
+            speechResult.connected ? 'Bluetooth route detected.' : 'Bluetooth route not confirmed by iOS.'
+          }`,
+        )
+      }
     } catch (speechError) {
       setError(readableError(speechError, 'Unable to speak through the connected audio route'))
     }
