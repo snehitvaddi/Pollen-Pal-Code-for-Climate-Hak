@@ -58,3 +58,19 @@ Open `http://localhost:5173`.
 ## Guardrail Story
 
 Pollen Pal gives exposure-preparation guidance only. It does not diagnose allergies, prescribe medication, or replace clinician advice. The Google Pollen key is kept server-side through the local Vite proxy.
+
+## Demo Assets
+
+The latest iOS demo screenshots are tracked in `demo-assets/` for slides, judging, and README preview.
+
+| Route setup | Route exposure |
+| --- | --- |
+| ![Route setup](demo-assets/01-route-setup.png) | ![Route exposure](demo-assets/02-route-exposure.png) |
+
+| Route risk panel | Walking / navigation mode |
+| --- | --- |
+| ![Route risk panel](demo-assets/03-route-risk-panel.png) | ![Walking mode](demo-assets/04-walking-mode.png) |
+
+| Glasses alert |
+| --- |
+| ![Glasses alert](demo-assets/05-glasses-alert.png) |
