@@ -7,6 +7,19 @@ Pollen Pal is a Code for Climate prototype for pollen-sensitive walkers and cycl
 - Open-Meteo wind, gust, humidity, and rain data
 - A simple exposure score with preparation guidance
 
+## App View
+
+The iOS app screenshots.
+
+| Route setup | Route risk panel |
+| --- | --- |
+| ![Route setup](demo-assets/01-route-setup.png) |  ![Route risk panel](demo-assets/03-route-risk-panel.png) |
+
+| Walking / navigation mode | Glasses alert |
+| --- | --- |
+|![Walking mode](demo-assets/04-walking-mode.png) | ![Glasses alert](demo-assets/05-glasses-alert.png) |
+
+
 ## Setup
 
 Create `.env.local` in the project root:
@@ -58,19 +71,3 @@ Open `http://localhost:5173`.
 ## Guardrail Story
 
 Pollen Pal gives exposure-preparation guidance only. It does not diagnose allergies, prescribe medication, or replace clinician advice. The Google Pollen key is kept server-side through the local Vite proxy.
-
-## Demo Assets
-
-The latest iOS demo screenshots are tracked in `demo-assets/` for slides, judging, and README preview.
-
-| Route setup | Route exposure |
-| --- | --- |
-| ![Route setup](demo-assets/01-route-setup.png) | ![Route exposure](demo-assets/02-route-exposure.png) |
-
-| Route risk panel | Walking / navigation mode |
-| --- | --- |
-| ![Route risk panel](demo-assets/03-route-risk-panel.png) | ![Walking mode](demo-assets/04-walking-mode.png) |
-
-| Glasses alert |
-| --- |
-| ![Glasses alert](demo-assets/05-glasses-alert.png) |
